@@ -79,7 +79,7 @@ func (c *longlivedClient) start() {
 			c.sleep()
 			continue
 		}
-		log.Printf("Client ID %v got response: %v", c.id, response.Result)
+		log.Printf("Client ID %v got response: %v", c.id, response.Data)
 	}
 }
 

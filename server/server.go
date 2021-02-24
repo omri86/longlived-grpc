@@ -80,7 +80,7 @@ func mockDataGenerator(server *longlivedServer) {
 		server.subsLock.RUnlock()
 
 		for id, channel := range subscribers {
-			channel<-&protos.Response{Result: fmt.Sprintf("data mock for: %d", id)}
+			channel<-&protos.Response{Data: fmt.Sprintf("data mock for: %d", id)}
 		}
 	}
 }

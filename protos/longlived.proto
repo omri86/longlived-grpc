@@ -12,5 +12,5 @@ message Request {
 }
 
 message Response {
-  string result = 1;
+  string data = 1;
 }
