@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = ".;protos";
+package protos;
+
+service Longlived {
+  rpc Subscribe(Request) returns (stream Response) {}
+}
+
+message Request {
+  int32 id = 1;
+}
+
+message Response {
+  string result = 1;
+}
