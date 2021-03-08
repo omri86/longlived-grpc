@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	// The server address in the format of host:port
 	lis, err := net.Listen("tcp", "127.0.0.1:7070")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -27,6 +26,7 @@ func main() {
 	go mockDataGenerator(server)
 
 	protos.RegisterLonglivedServer(grpcServer, server)
+	log.Printf("Starting server on address %s", lis.Addr().String())
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -56,6 +56,7 @@ func (s *longlivedServer) Subscribe(request *protos.Request, stream protos.Longl
 	for {
 		for msg := range c {
 			if err := stream.Send(msg); err != nil {
+				log.Printf("Failed to send data to client: %v", err)
 				// In case of error the client would re-subscribe so delete the channel for this subscriber
 				s.subsLock.Lock()
 				delete(s.subscribers, request.Id)

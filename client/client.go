@@ -17,7 +17,6 @@ func main() {
 		wg.Add(1)
 		client, err := mkLonglivedClient(int32(i))
 		if err != nil {
-			// TODO handle
 			log.Fatal(err)
 		}
 		go client.start()
@@ -30,8 +29,8 @@ func main() {
 
 type longlivedClient struct {
 	client protos.LonglivedClient           // client is the gRPC client
-	id     int32                            // id is the client ID used for subscribing
 	conn   *grpc.ClientConn                 // conn is the client connection
+	id     int32                            // id is the client ID used for subscribing
 	stream protos.Longlived_SubscribeClient // stream holds the gRPC stream between the client and the server
 }
 
@@ -73,13 +72,13 @@ func (c *longlivedClient) start() {
 		}
 		response, err := c.stream.Recv()
 		if err != nil {
-			log.Printf("Failed to recieve message: %v", err)
+			log.Printf("Failed to receive message: %v", err)
 			// Clearing the stream will force the client to resubscribe on next iteration
 			c.stream = nil
 			c.sleep()
 			continue
 		}
-		log.Printf("Client ID %v got response: %v", c.id, response.Data)
+		log.Printf("Client ID %d got response: %q", c.id, response.Data)
 	}
 }
 
