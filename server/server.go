@@ -18,7 +18,7 @@ func main() {
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 
 	server := &longlivedServer{
-		subscribers: make(map[int32]chan<- *protos.Response),
+		subscribers: make(map[int32]chan<- *protos.Response, 1),
 		subsLock: &sync.RWMutex{},
 	}
 
@@ -56,11 +56,12 @@ func (s *longlivedServer) Subscribe(request *protos.Request, stream protos.Longl
 	for {
 		for msg := range c {
 			if err := stream.Send(msg); err != nil {
-				log.Printf("Failed to send data to client: %v", err)
-				// In case of error the client would re-subscribe so delete the channel for this subscriber
+				// In case of error the client would re-subscribe so close and delete the channel for this subscriber
 				s.subsLock.Lock()
+				close(s.subscribers[request.Id])
 				delete(s.subscribers, request.Id)
 				s.subsLock.Unlock()
+				log.Printf("Failed to send data to client: %v", err)
 				return err
 			}
 		}
@@ -71,17 +72,16 @@ func mockDataGenerator(server *longlivedServer) {
 	log.Println("Starting data generation")
 	for {
 		time.Sleep(time.Second)
-		subscribers := make(map[int32]chan<- *protos.Response)
 
-		// Copy the channels to avoid blocking the lock while sending a message
 		server.subsLock.RLock()
 		for id, channel := range server.subscribers {
-			subscribers[id] = channel
+			select {
+			case channel <- &protos.Response{Data: fmt.Sprintf("data mock for: %d", id)}:
+				log.Printf("Data sent to client %d", id)
+			default:
+				log.Printf("Channel buffer full - avoid sending data to client: %d", id)
+			}
 		}
 		server.subsLock.RUnlock()
-
-		for id, channel := range subscribers {
-			channel<-&protos.Response{Data: fmt.Sprintf("data mock for: %d", id)}
-		}
 	}
 }
