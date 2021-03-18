@@ -59,6 +59,7 @@ func (s *longlivedServer) Subscribe(request *protos.Request, stream protos.Longl
 		select {
 		case <-fin:
 			log.Printf("Closing stream for client ID: %d", request.Id)
+			return nil
 		case <- ctx.Done():
 			log.Printf("Client ID %d has disconnected", request.Id)
 			return nil
