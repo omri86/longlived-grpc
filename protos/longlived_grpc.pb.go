@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LonglivedClient interface {
 	Subscribe(ctx context.Context, in *Request, opts ...grpc.CallOption) (Longlived_SubscribeClient, error)
+	Unsubscribe(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 }
 
 type longlivedClient struct {
@@ -61,11 +62,21 @@ func (x *longlivedSubscribeClient) Recv() (*Response, error) {
 	return m, nil
 }
 
+func (c *longlivedClient) Unsubscribe(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := c.cc.Invoke(ctx, "/protos.Longlived/Unsubscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LonglivedServer is the server API for Longlived service.
 // All implementations must embed UnimplementedLonglivedServer
 // for forward compatibility
 type LonglivedServer interface {
 	Subscribe(*Request, Longlived_SubscribeServer) error
+	Unsubscribe(context.Context, *Request) (*Response, error)
 	mustEmbedUnimplementedLonglivedServer()
 }
 
@@ -75,6 +86,9 @@ type UnimplementedLonglivedServer struct {
 
 func (UnimplementedLonglivedServer) Subscribe(*Request, Longlived_SubscribeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (UnimplementedLonglivedServer) Unsubscribe(context.Context, *Request) (*Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unsubscribe not implemented")
 }
 func (UnimplementedLonglivedServer) mustEmbedUnimplementedLonglivedServer() {}
 
@@ -110,13 +124,36 @@ func (x *longlivedSubscribeServer) Send(m *Response) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Longlived_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LonglivedServer).Unsubscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Longlived/Unsubscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LonglivedServer).Unsubscribe(ctx, req.(*Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Longlived_ServiceDesc is the grpc.ServiceDesc for Longlived service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Longlived_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.Longlived",
 	HandlerType: (*LonglivedServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Unsubscribe",
+			Handler:    _Longlived_Unsubscribe_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",

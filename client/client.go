@@ -19,22 +19,23 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		// Dispatch client goroutine
 		go client.start()
-		time.Sleep(time.Second*2)
+		time.Sleep(time.Second * 2)
 	}
 
 	// The wait group purpose is to avoid exiting, the clients do not exit
 	wg.Wait()
 }
 
+// longlivedClient holds the long lived gRPC client fields
 type longlivedClient struct {
-	client protos.LonglivedClient           // client is the gRPC client
-	conn   *grpc.ClientConn                 // conn is the client connection
-	id     int32                            // id is the client ID used for subscribing
-	stream protos.Longlived_SubscribeClient // stream holds the gRPC stream between the client and the server
+	client protos.LonglivedClient // client is the long lived gRPC client
+	conn   *grpc.ClientConn       // conn is the client gRPC connection
+	id     int32                  // id is the client ID used for subscribing
 }
 
-// mkLonglivedClient returns a new gRPC client instance
+// mkLonglivedClient creates a new client instance
 func mkLonglivedClient(id int32) (*longlivedClient, error) {
 	conn, err := mkConnection()
 	if err != nil {
@@ -56,26 +57,37 @@ func (c *longlivedClient) close() {
 
 // subscribe subscribes to messages from the gRPC server
 func (c *longlivedClient) subscribe() (protos.Longlived_SubscribeClient, error) {
+	log.Printf("Subscribing client ID: %d", c.id)
 	return c.client.Subscribe(context.Background(), &protos.Request{Id: c.id})
 }
 
+// unsubscribe unsubscribes to messages from the gRPC server
+func (c *longlivedClient) unsubscribe() error {
+	log.Printf("Unsubscribing client ID %d", c.id)
+	_, err := c.client.Unsubscribe(context.Background(), &protos.Request{Id: c.id})
+	return err
+}
+
 func (c *longlivedClient) start() {
-	log.Printf("Subscribing client ID: %d", c.id)
 	var err error
+	// stream is the client side of the RPC stream
+	var stream protos.Longlived_SubscribeClient
 	for {
-		if c.stream == nil {
-			if c.stream, err = c.subscribe(); err != nil {
+		if stream == nil {
+			if stream, err = c.subscribe(); err != nil {
 				log.Printf("Failed to subscribe: %v", err)
 				c.sleep()
+				// Retry on failure
 				continue
 			}
 		}
-		response, err := c.stream.Recv()
+		response, err := stream.Recv()
 		if err != nil {
 			log.Printf("Failed to receive message: %v", err)
 			// Clearing the stream will force the client to resubscribe on next iteration
-			c.stream = nil
+			stream = nil
 			c.sleep()
+			// Retry on failure
 			continue
 		}
 		log.Printf("Client ID %d got response: %q", c.id, response.Data)
